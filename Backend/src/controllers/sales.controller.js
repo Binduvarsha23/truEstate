@@ -1,7 +1,7 @@
 import { SalesRecord } from "../models/SalesRecord.js";
 import { getSalesData } from "../services/sales.service.js";
 
-export const fetchSales = async (req, res) => {
+export const getSales = async (req, res) => {
   try {
     const response = await getSalesData(req.query);
     res.json(response);
@@ -36,5 +36,6 @@ export const getDashboard = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
