@@ -1,4 +1,15 @@
 import { SalesRecord } from "../models/SalesRecord.js";
+import { getSalesData } from "../services/sales.service.js";
+
+export const fetchSales = async (req, res) => {
+  try {
+    const response = await getSalesData(req.query);
+    res.json(response);
+  } catch (err) {
+    console.error("❌ Controller Error", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
 // Dashboard aggregation
 export const getDashboard = async (req, res) => {
@@ -25,4 +36,5 @@ export const getDashboard = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
