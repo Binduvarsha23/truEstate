@@ -1,11 +1,27 @@
-import { getSalesData } from "../services/sales.service.js";
+import { SalesRecord } from "../models/salesRecord.model.js";
 
-export const fetchSales = async (req, res) => {
+// Dashboard aggregation
+export const getDashboard = async (req, res) => {
   try {
-    const response = await getSalesData(req.query);
-    res.json(response);
-  } catch (err) {
-    console.error("❌ Controller Error", err);
-    res.status(500).json({ error: "Internal Server Error" });
+    const result = await SalesRecord.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalUnits: { $sum: "$Quantity" },
+          totalAmount: { $sum: "$Final Amount" },
+          totalDiscount: {
+            $sum: {
+              $multiply: ["$Quantity", "$Price per Unit", { $divide: ["$Discount Percentage", 100] }]
+            }
+          }
+        }
+      }
+    ]);
+
+    const dashboard = result[0] || { totalUnits: 0, totalAmount: 0, totalDiscount: 0 };
+    res.json(dashboard);
+  } catch (error) {
+    console.error("Dashboard Error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
