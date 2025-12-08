@@ -1,8 +1,9 @@
 import express from "express";
-import { fetchSales } from "../controllers/sales.controller.js";
+import { getSales, getDashboard } from "../controllers/sales.controller.js";
 
 const router = express.Router();
 
-router.get("/", fetchSales);
+router.get("/", getSales); // existing sales list
+router.get("/dashboard", getDashboard); // new route
 
 export default router;
