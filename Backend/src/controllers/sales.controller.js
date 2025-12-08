@@ -18,11 +18,15 @@ export const getDashboard = async (req, res) => {
       {
         $group: {
           _id: null,
-          totalUnits: { $sum: "$Quantity" },
-          totalAmount: { $sum: "$Final Amount" },
+          totalUnits: { $sum: { $toDouble: "$Quantity" } },
+          totalAmount: { $sum: { $toDouble: "$Final Amount" } },
           totalDiscount: {
             $sum: {
-              $multiply: ["$Quantity", "$Price per Unit", { $divide: ["$Discount Percentage", 100] }]
+              $multiply: [
+                { $toDouble: "$Quantity" },
+                { $toDouble: "$Price per Unit" },
+                { $divide: [{ $toDouble: "$Discount Percentage" }, 100] }
+              ]
             }
           }
         }
@@ -36,6 +40,8 @@ export const getDashboard = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 
 
