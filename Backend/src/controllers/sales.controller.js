@@ -1,4 +1,4 @@
-import { SalesRecord } from "../models/salesRecord.model.js";
+import { SalesRecord } from "../models/SalesRecord.js";
 
 // Dashboard aggregation
 export const getDashboard = async (req, res) => {
@@ -25,3 +25,4 @@ export const getDashboard = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
