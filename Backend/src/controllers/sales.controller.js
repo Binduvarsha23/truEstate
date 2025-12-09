@@ -1,7 +1,7 @@
-// controllers/sales.controller.js
 import { getSalesData } from "../services/sales.service.js";
 import { SalesRecord } from "../models/SalesRecord.js";
 
+// Get sales with filters, pagination, sorting
 export const getSales = async (req, res) => {
   try {
     const response = await getSalesData(req.query);
@@ -12,7 +12,7 @@ export const getSales = async (req, res) => {
   }
 };
 
-// 📊 Dashboard Aggregation
+// Dashboard aggregation
 export const getDashboard = async (req, res) => {
   try {
     const result = await SalesRecord.aggregate([
