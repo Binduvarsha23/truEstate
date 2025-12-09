@@ -1,22 +1,19 @@
-// services/sales.service.js
 import { SalesRecord } from "../models/SalesRecord.js";
 
 export const getSalesData = async (query) => {
   const filter = {};
 
-  // 🔍 FIXED SEARCH (Name or Phone)
+  // 🔍 Search by Name or Phone
   if (query.search) {
     const s = query.search.trim();
-
     if (/^\d+$/.test(s)) {
-      // Phone search must start with digits entered
       filter["Phone Number"] = { $regex: "^" + s };
     } else {
       filter["Customer Name"] = { $regex: s, $options: "i" };
     }
   }
 
-  // 🔎 MULTI-SELECT FILTERS
+  // 🔎 Multi-select filters
   const mappedFilters = [
     ["region", "Customer Region"],
     ["gender", "Gender"],
@@ -30,49 +27,54 @@ export const getSalesData = async (query) => {
     }
   }
 
-  // 🔖 TAGS
+  // 🔖 Tags search
   if (query.tags) {
     filter["Tags"] = { $regex: query.tags, $options: "i" };
   }
 
-  // 🔢 FIXED AGE RANGE
+  // 🔢 Age filter (convert string to number using $expr)
   if (query.ageMin || query.ageMax) {
-    filter["Age"] = {};
-    if (query.ageMin) filter["Age"].$gte = Number(query.ageMin);
-    if (query.ageMax) filter["Age"].$lte = Number(query.ageMax);
+    const conditions = [];
+    if (query.ageMin) {
+      conditions.push({ $gte: [{ $toDouble: "$Age" }, Number(query.ageMin)] });
+    }
+    if (query.ageMax) {
+      conditions.push({ $lte: [{ $toDouble: "$Age" }, Number(query.ageMax)] });
+    }
+    if (conditions.length === 1) {
+      filter.$expr = conditions[0];
+    } else if (conditions.length === 2) {
+      filter.$expr = { $and: conditions };
+    }
   }
 
-  // 📅 FIXED DATE RANGE
+  // 📅 Date filter (stored as "YYYY-MM-DD" string)
   if (query.dateFrom || query.dateTo) {
     filter["Date"] = {};
-    if (query.dateFrom) filter["Date"].$gte = new Date(query.dateFrom);
-    if (query.dateTo) filter["Date"].$lte = new Date(query.dateTo + "T23:59:59");
+    if (query.dateFrom) filter["Date"].$gte = query.dateFrom;
+    if (query.dateTo) filter["Date"].$lte = query.dateTo;
   }
 
-  // 🔽 SORTING
+  // 🔽 Sorting
   const sort = {};
   const sortMap = {
     date: "Date",
     quantity: "Quantity",
     customerName: "Customer Name",
   };
-
   if (query.sortBy) {
     sort[sortMap[query.sortBy]] = query.order === "desc" ? -1 : 1;
   }
 
-  // 📄 PAGINATION
+  // 📄 Pagination
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  // 📊 DB QUERY
+  // 📊 DB Query
   const total = await SalesRecord.countDocuments(filter);
 
-  const data = await SalesRecord.find(filter)
-    .sort(sort)
-    .skip(skip)
-    .limit(limit);
+  const data = await SalesRecord.find(filter).sort(sort).skip(skip).limit(limit);
 
   return { total, page, limit, data };
 };
