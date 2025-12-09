@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "./SalesTable.css";
 
@@ -18,23 +18,77 @@ const columns = [
   "Employee Name",
 ];
 
-// Reusable dropdown
-const FilterDropdown = ({ label, value, setValue, options }) => {
+// MultiSelectDropdown component
+const MultiSelectDropdown = ({ label, options, selectedValues, setSelectedValues }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleOption = (option) => {
+    if (selectedValues.includes(option)) {
+      setSelectedValues(selectedValues.filter((v) => v !== option));
+    } else {
+      setSelectedValues([...selectedValues, option]);
+    }
+  };
+
   return (
-    <div className="filter">
-      <select
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="filter-select"
-      >
-        <option value="">{label}</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
+    <div className="multi-select" ref={ref}>
+      <div className="multi-select-header" onClick={() => setOpen(!open)}>
+        {selectedValues.length > 0
+          ? selectedValues.map((v) => <span key={v} className="pill">{v}</span>)
+          : label}
+        <span className="arrow">{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div className="multi-select-options">
+          {options.map((opt) => (
+            <label key={opt} className="multi-select-option">
+              <input
+                type="checkbox"
+                checked={selectedValues.includes(opt)}
+                onChange={() => toggleOption(opt)}
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
+      )}
     </div>
+  );
+};
+
+// SortDropdown component
+const SortDropdown = ({ sortField, setSortField, setSortOrder }) => {
+  const options = [
+    { label: "Date (Newest First)", value: "date", order: "desc" },
+    { label: "Quantity (Low → High)", value: "quantity", order: "asc" },
+    { label: "Customer Name (A → Z)", value: "customerName", order: "asc" },
+  ];
+
+  const handleChange = (e) => {
+    const selected = options.find((o) => o.value === e.target.value);
+    setSortField(selected.value);
+    setSortOrder(selected.order);
+  };
+
+  return (
+    <select value={sortField} onChange={handleChange} className="sort-dropdown">
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 };
 
@@ -44,68 +98,80 @@ const SalesTable = () => {
   const [total, setTotal] = useState(0);
   const limit = 10;
 
-  // Dashboard summary
   const [dashboard, setDashboard] = useState({
     totalUnits: 0,
     totalAmount: 0,
     totalDiscount: 0,
   });
 
-  // Filters
   const [search, setSearch] = useState("");
-  const [region, setRegion] = useState("");
-  const [gender, setGender] = useState("");
-  const [category, setCategory] = useState("");
-  const [payment, setPayment] = useState("");
 
-  // NEW: dropdown filters
-  const [ageRange, setAgeRange] = useState("");
-  const [dateRange, setDateRange] = useState("");
+  // Filters
+  const [region, setRegion] = useState([]);
+  const [gender, setGender] = useState([]);
+  const [category, setCategory] = useState([]);
+  const [payment, setPayment] = useState([]);
+  const [ageRange, setAgeRange] = useState([]);
+  const [dateRange, setDateRange] = useState([]);
 
   // Sorting
-  const [sortBy, setSortBy] = useState("");
-  const [order, setOrder] = useState("asc");
+  const [sortBy, setSortBy] = useState("date");
+  const [order, setOrder] = useState("desc");
 
-  // Decode age dropdown
-  const decodeAge = (val) => {
-    if (!val) return { min: "", max: "" };
-    const [min, max] = val.split("-");
-    return { min, max };
-  };
+  const fixedAgeRanges = ["18-25", "26-35", "36-45", "46-60"];
+  const fixedDateRanges = [
+    "2021-01-01_2021-12-31",
+    "2022-01-01_2022-12-31",
+    "2023-01-01_2023-12-31",
+  ];
 
-  // Decode date dropdown
-  const decodeDate = (val) => {
-    if (!val) return { from: "", to: "" };
-    const [from, to] = val.split("_");
-    return { from, to };
-  };
+  const decodeMulti = (arr) => (arr.length ? arr.join(",") : undefined);
 
+  // Fetch dashboard stats
   const fetchDashboard = async () => {
-    const { data } = await axios.get(
-      "https://truestate-cn56.onrender.com/api/sales/dashboard"
-    );
-    setDashboard(data);
+    try {
+      const { data } = await axios.get(
+        "https://truestate-cn56.onrender.com/api/sales/dashboard"
+      );
+      setDashboard(data);
+    } catch (err) {
+      console.error("Dashboard fetch error", err);
+    }
   };
 
+  // Fetch sales data
   const fetchSales = async () => {
     try {
-      const age = decodeAge(ageRange);
-      const date = decodeDate(dateRange);
+      let ageMin, ageMax;
+      if (ageRange.length > 0) {
+        const mins = ageRange.map((r) => Number(r.split("-")[0]));
+        const maxs = ageRange.map((r) => Number(r.split("-")[1]));
+        ageMin = Math.min(...mins);
+        ageMax = Math.max(...maxs);
+      }
+
+      let dateFrom, dateTo;
+      if (dateRange.length > 0) {
+        const froms = dateRange.map((d) => new Date(d.split("_")[0]));
+        const tos = dateRange.map((d) => new Date(d.split("_")[1] + "T23:59:59"));
+        dateFrom = new Date(Math.min(...froms));
+        dateTo = new Date(Math.max(...tos));
+      }
 
       const params = {
         page,
         limit,
-        search,
+        search: search || undefined,
         sortBy,
         order,
-        region,
-        gender,
-        category,
-        payment,
-        ageMin: age.min || undefined,
-        ageMax: age.max || undefined,
-        dateFrom: date.from || undefined,
-        dateTo: date.to || undefined,
+        region: decodeMulti(region),
+        gender: decodeMulti(gender),
+        category: decodeMulti(category),
+        payment: decodeMulti(payment),
+        ageMin,
+        ageMax,
+        dateFrom: dateFrom ? dateFrom.toISOString().split("T")[0] : undefined,
+        dateTo: dateTo ? dateTo.toISOString().split("T")[0] : undefined,
       };
 
       const { data } = await axios.get(
@@ -139,153 +205,80 @@ const SalesTable = () => {
     order,
   ]);
 
-  // Page buttons logic
   const totalPages = Math.ceil(total / limit);
   const getPageButtons = () => {
-    let arr = [];
-    let start = Math.max(1, page - 2);
-    let end = Math.min(totalPages, start + 4);
-
+    const arr = [];
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPages, start + 4);
     for (let i = start; i <= end; i++) arr.push(i);
     return arr;
   };
 
   return (
     <div className="sales-container">
-
-      {/* HEADER: Dashboard left, search right */}
+      {/* Header */}
       <div className="header-row">
         <h1>Sales Dashboard</h1>
+        <input
+          type="text"
+          placeholder="Search name or phone..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
 
-        <div className="top-search">
-          <input
-            type="text"
-            placeholder="Search name or phone..."
-            className="search-input"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
+      {/* Filters + Sort */}
+      <div className="filter-bar">
+        <MultiSelectDropdown label="Region" options={["North","South","East","West"]} selectedValues={region} setSelectedValues={setRegion} />
+        <MultiSelectDropdown label="Gender" options={["Male","Female"]} selectedValues={gender} setSelectedValues={setGender} />
+        <MultiSelectDropdown label="Category" options={["Electronics","Clothing","Furniture","Beauty"]} selectedValues={category} setSelectedValues={setCategory} />
+        <MultiSelectDropdown label="Payment" options={["Cash","Card","UPI"]} selectedValues={payment} setSelectedValues={setPayment} />
+        <MultiSelectDropdown label="Age Range" options={fixedAgeRanges} selectedValues={ageRange} setSelectedValues={setAgeRange} />
+        <MultiSelectDropdown label="Date Range" options={fixedDateRanges} selectedValues={dateRange} setSelectedValues={setDateRange} />
+        <div className="sort-container">
+          <SortDropdown sortField={sortBy} setSortField={setSortBy} setSortOrder={setOrder} />
         </div>
       </div>
 
-      {/* FILTER BAR */}
-      <div className="filter-bar">
-
-        <FilterDropdown
-          label="Region"
-          value={region}
-          setValue={setRegion}
-          options={["North", "South", "East", "West"]}
-        />
-
-        <FilterDropdown
-          label="Gender"
-          value={gender}
-          setValue={setGender}
-          options={["Male", "Female"]}
-        />
-
-        <FilterDropdown
-          label="Category"
-          value={category}
-          setValue={setCategory}
-          options={["Electronics", "Clothing", "Furniture"]}
-        />
-
-        <FilterDropdown
-          label="Payment"
-          value={payment}
-          setValue={setPayment}
-          options={["Cash", "Card", "UPI"]}
-        />
-
-        {/* AGE RANGE DROPDOWN */}
-        <FilterDropdown
-          label="Age Range"
-          value={ageRange}
-          setValue={setAgeRange}
-          options={[
-            "18-25",
-            "25-35",
-            "35-45",
-            "45-60",
-            "60-80",
-          ]}
-        />
-
-        {/* DATE RANGE DROPDOWN */}
-        <FilterDropdown
-          label="Date Range"
-          value={dateRange}
-          setValue={setDateRange}
-          options={[
-            "2023-01-01_2023-06-30",
-            "2023-07-01_2023-12-31",
-            "2024-01-01_2024-06-30",
-            "2024-07-01_2024-12-31",
-          ]}
-        />
-
-        {/* SORT */}
-        <FilterDropdown
-          label="Sort"
-          value={sortBy}
-          setValue={setSortBy}
-          options={["date", "quantity", "customerName"]}
-        />
-      </div>
-
-      {/* STATS CARDS */}
+      {/* Stats */}
       <div className="stats-row">
         <div className="stat-box">
           <h4>Total Units Sold</h4>
           <p>{dashboard.totalUnits}</p>
         </div>
-
         <div className="stat-box">
           <h4>Total Amount</h4>
           <p>₹{dashboard.totalAmount.toLocaleString()}</p>
         </div>
-
         <div className="stat-box">
           <h4>Total Discount</h4>
           <p>₹{dashboard.totalDiscount.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* Table */}
       <table className="sales-table">
         <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
+          <tr>{columns.map((col) => <th key={col}>{col}</th>)}</tr>
         </thead>
         <tbody>
           {sales.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className="no-data">
-                No records found
-              </td>
-            </tr>
+            <tr><td colSpan={columns.length} className="no-data">No records found</td></tr>
           ) : (
             sales.map((row, idx) => (
               <tr key={idx}>
-                {columns.map((col) => (
-                  <td key={col}>{row[col] || "-"}</td>
-                ))}
+                {columns.map((col) => <td key={col}>{row[col] || "-"}</td>)}
               </tr>
             ))
           )}
         </tbody>
       </table>
 
-      {/* PAGINATION */}
-      <div className="pagination">
+      {/* Pagination */}
+      <div className="pagination center">
         {getPageButtons().map((num) => (
           <button
             key={num}
@@ -295,12 +288,8 @@ const SalesTable = () => {
             {num}
           </button>
         ))}
-
         {totalPages > 5 && page < totalPages && <span>...</span>}
-
-        {totalPages > 5 && (
-          <button onClick={() => setPage(totalPages)}>Last</button>
-        )}
+        {totalPages > 5 && <button onClick={() => setPage(totalPages)}>Last</button>}
       </div>
     </div>
   );
