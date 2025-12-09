@@ -98,3 +98,58 @@
 .date-box input {
   padding: 5px;
 }
+
+.multi-select {
+  position: relative;
+  width: 150px;
+  margin-right: 10px;
+}
+
+.multi-select-header {
+  border: 1px solid #ccc;
+  padding: 5px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 35px;
+  align-items: center;
+}
+
+.multi-select-header .pill {
+  background: #007bff;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.multi-select-options {
+  position: absolute;
+  left: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  background: white;
+  width: 100%;
+  z-index: 10;
+}
+
+.multi-select-option {
+  display: block;
+  padding: 5px 10px;
+}
+
+.sortable {
+  cursor: pointer;
+}
+
+.pagination.center {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.pagination button {
+  margin: 0 5px;
+  padding: 5px 10px;
+}
