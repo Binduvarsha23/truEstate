@@ -1,17 +1,18 @@
-import { SalesRecord } from "../models/SalesRecord.js";
+// controllers/sales.controller.js
 import { getSalesData } from "../services/sales.service.js";
+import { SalesRecord } from "../models/SalesRecord.js";
 
 export const getSales = async (req, res) => {
   try {
     const response = await getSalesData(req.query);
     res.json(response);
   } catch (err) {
-    console.error("❌ Controller Error", err);
+    console.error("❌ Controller Error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-// Dashboard aggregation
+// 📊 Dashboard Aggregation
 export const getDashboard = async (req, res) => {
   try {
     const result = await SalesRecord.aggregate([
@@ -25,23 +26,17 @@ export const getDashboard = async (req, res) => {
               $multiply: [
                 { $toDouble: "$Quantity" },
                 { $toDouble: "$Price per Unit" },
-                { $divide: [{ $toDouble: "$Discount Percentage" }, 100] }
-              ]
-            }
-          }
-        }
-      }
+                { $divide: [{ $toDouble: "$Discount Percentage" }, 100] },
+              ],
+            },
+          },
+        },
+      },
     ]);
 
-    const dashboard = result[0] || { totalUnits: 0, totalAmount: 0, totalDiscount: 0 };
-    res.json(dashboard);
+    res.json(result[0] || { totalUnits: 0, totalAmount: 0, totalDiscount: 0 });
   } catch (error) {
     console.error("Dashboard Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
-
-
-
