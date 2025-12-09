@@ -5,9 +5,6 @@ import SalesTable from "./components/SalesTable";
 function App() {
   return (
     <div className="App">
-      <h1>Retail Sales Dashboard</h1>
-      <Dashboard />
-      <hr/>
       <SalesTable />
     </div>
   );
